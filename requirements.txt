@@ -1,0 +1,12 @@
+pandas
+numpy
+scipy
+scikit-learn
+rank-bm25
+sentence-transformers
+matplotlib
+streamlit
+pyarrow
+pyyaml
+tqdm
+pytest

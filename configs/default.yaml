@@ -1,0 +1,41 @@
+seed: 42
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  indexes: indexes
+  results: results
+
+sampling:
+  tune_claims: 500          # from train.jsonl, SUPPORTS/REFUTES stratified 50/50
+  eval_claims: 1500         # from shared_task_dev.jsonl, SUPPORTS/REFUTES stratified 50/50
+  nei_claims: 200           # from shared_task_dev.jsonl, analysis only
+  distractor_train_claims: 5000   # gold pages only
+  target_corpus_sentences: 200000 # random pages added until this is approximately reached
+  mini:
+    claims_per_label: 30
+    nei_claims: 10
+    random_pages: 400
+
+preprocessing:
+  use_title_augmentation: true
+  lowercase: true
+  remove_stopwords: true
+  stemming: false
+
+retrieval:
+  depth: 100
+  report_k: [1, 3, 5, 10, 20]
+
+bm25:
+  k1: 1.5
+  b: 0.75
+
+dense:
+  model_name: all-MiniLM-L6-v2
+  batch_size: 64
+  normalize: true
+
+rrf:
+  k: 60

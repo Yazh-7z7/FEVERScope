@@ -37,6 +37,17 @@ class DenseRetriever(BaseRetriever):
 
     def _init_client(self) -> None:
         """Attempt to initialize connection to Pinecone."""
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+
+        if not self.api_key:
+            self.api_key = os.getenv("PINECONE_API_KEY")
+        if not self.index_name:
+            self.index_name = os.getenv("PINECONE_INDEX_NAME", "fever-evidence-index")
+
         if not self.api_key:
             logger.info("Pinecone API key not provided. Dense retriever is inactive until key is supplied.")
             return
@@ -71,8 +82,10 @@ class DenseRetriever(BaseRetriever):
         """Index is remotely hosted on Pinecone serverless infrastructure."""
         pass
 
-    def load(self, path: Path | str) -> None:
+    def load(self, path: Path | str = "") -> None:
         """Reload connection to Pinecone."""
+        self.api_key = os.getenv("PINECONE_API_KEY") or self.api_key
+        self.index_name = os.getenv("PINECONE_INDEX_NAME") or self.index_name
         self._init_client()
 
     def search(self, query: str, k: int = 100) -> list[Hit]:

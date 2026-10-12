@@ -198,7 +198,8 @@ class IndexManager:
         # 3. Dense (Pinecone)
         if self.dense.is_ready:
             dense_hits = self.dense.search(query, k=k)
-            results["dense"] = self._enrich_hits(dense_hits, [])
+            doc_id_ref = self.tfidf.doc_ids if self.tfidf.is_ready else (self.bm25.doc_ids if self.bm25.is_ready else [])
+            results["dense"] = self._enrich_hits(dense_hits, doc_id_ref)
             if dense_hits:
                 active_hit_lists.append(dense_hits)
 

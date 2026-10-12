@@ -10,6 +10,11 @@ Provides REST API endpoints for:
 import os
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
+
+# Load .env variables before importing application modules
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -42,6 +47,7 @@ def startup_event() -> None:
     """Load persistent indexes on server boot if available."""
     logger.info("Initializing FEVERScope backend service...")
     try:
+        index_manager.dense.load("")
         status = index_manager.ensure_indexes_loaded()
         logger.info("Retriever index status on boot: %s", status)
     except Exception as exc:

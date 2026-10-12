@@ -161,8 +161,12 @@ def update_pinecone_config(req: PineconeConfigRequest) -> dict[str, Any]:
     index_manager.dense.index_name = req.index_name
     index_manager.dense.load("")
 
-    return {
-        "message": "Pinecone configuration updated.",
-        "dense_ready": index_manager.dense.is_ready,
-        "index_name": req.index_name,
-    }
+@app.post("/api/rebuild-indexes")
+def trigger_rebuild_indexes() -> dict[str, Any]:
+    """Trigger rebuilding TF-IDF and BM25 indexes from current corpus parquet."""
+    try:
+        index_manager.rebuild_indexes()
+        return {"message": "Indexes rebuilt successfully.", "status": index_manager.get_status()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+

@@ -131,7 +131,7 @@ def main() -> None:
 
     # 6. Fit and persist TF-IDF and BM25 immediately
     logger.info("Triggering automatic index construction and persistence...")
-    index_manager.ensure_indexes_loaded()
+    index_manager.rebuild_indexes(corpus_df)
     logger.info("Indexes built and persisted successfully! Ready for search.")
 
 

@@ -124,6 +124,27 @@ class IndexManager:
             self.bm25.build(df)
             self.bm25.save(self.bm25_path)
 
+    def rebuild_indexes(self, corpus_df: pd.DataFrame | None = None) -> None:
+        """Force rebuild of TF-IDF and BM25 indexes and save to disk."""
+        if corpus_df is not None:
+            self.corpus_df = corpus_df
+        else:
+            self._ensure_corpus_metadata()
+
+        if self.corpus_df is None or len(self.corpus_df) == 0:
+            raise ValueError("No corpus available to rebuild indexes.")
+
+        logger.info("Rebuilding TF-IDF index on %d documents...", len(self.corpus_df))
+        self.tfidf.build(self.corpus_df)
+        self.tfidf.save(self.tfidf_path)
+
+        logger.info("Rebuilding BM25 index on %d documents...", len(self.corpus_df))
+        self.bm25.build(self.corpus_df)
+        self.bm25.save(self.bm25_path)
+
+        self._ensure_corpus_metadata()
+        logger.info("Rebuild complete. Both indexes persisted.")
+
     def get_status(self) -> dict[str, Any]:
         """Return status dictionary of all retrievers."""
         return {

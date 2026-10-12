@@ -5,7 +5,10 @@ scikit-learn
 rank-bm25
 sentence-transformers
 matplotlib
-streamlit
+fastapi
+uvicorn[standard]
+pinecone-client
+python-dotenv
 pyarrow
 pyyaml
 tqdm

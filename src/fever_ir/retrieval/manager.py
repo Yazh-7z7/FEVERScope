@@ -76,8 +76,8 @@ class IndexManager:
     def _ensure_corpus_metadata(self) -> None:
         """Load corpus parquet if available for rich document details in search results."""
         corpus_paths = [
-            self.config.paths.interim / "mini_corpus.parquet",
             self.config.paths.processed / "corpus.parquet",
+            self.config.paths.interim / "mini_corpus.parquet",
         ]
         for path in corpus_paths:
             if path.is_file() and self.corpus_df is None:

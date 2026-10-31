@@ -1,4 +1,4 @@
-# PROJECT_PLAN.md — FEVER Evidence Retrieval: TF-IDF vs BM25 vs Sentence-Transformers vs RRF Hybrid
+# plan.md — FEVER Evidence Retrieval: TF-IDF vs BM25 vs Sentence-Transformers vs RRF Hybrid
 
 > **Audience:** the AI coding agent working in this workspace (Google Antigravity) and the human student who is *learning* while building.
 > **Read this file fully before every task.** It is the source of truth for scope, design decisions, interfaces, and acceptance criteria.
@@ -36,10 +36,10 @@ Four retrieval approaches, all searching the **same sentence-level corpus** with
 | `dense` | Sentence-Transformer embeddings + cosine similarity | sentence-transformers |
 | `rrf` | Reciprocal Rank Fusion of the three above | own implementation |
 
-Evaluate with **Precision@K, Recall@K, MAP, nDCG**, plus a **Precision–Recall graph**, using real experimental results. Research question: *Can hybrid (RRF) retrieval find relevant evidence more effectively than any individual method?* Finish with an interactive **Streamlit** app.
+Evaluate with **Precision@K, Recall@K, MAP, nDCG**, plus a **Precision–Recall graph**, using real experimental results. Research question: *Can hybrid (RRF) retrieval find relevant evidence more effectively than any individual method?* Expose results through an interactive **FastAPI + React** web application.
 
-**Tech stack:** Python 3.11, pandas, NumPy, scikit-learn, rank-bm25, sentence-transformers, Matplotlib, Streamlit.
-Supporting: scipy (stats), pyarrow (parquet), pyyaml, tqdm, pytest.
+**Tech stack:** Python 3.11, pandas, NumPy, scikit-learn, rank-bm25, sentence-transformers, Matplotlib, FastAPI, uvicorn, React 19 (Vite 8), Pinecone.
+Supporting: scipy (stats), pyarrow (parquet), pyyaml, tqdm, pytest, python-dotenv.
 
 ---
 
@@ -93,33 +93,43 @@ Use `train.jsonl` (tuning + distractors) and `shared_task_dev.jsonl` (held-out e
 
 ### 4.1 Project structure
 ```
-fever-hybrid-ir/
-├── PROJECT_PLAN.md                  # this file
+FEVERScope/
+├── plan.md                          # this file
 ├── .agent/
 │   ├── rules/project_rules.md       # short rules (copy of §0), optional
 │   └── workflows/                   # saved prompts (e.g. new-component, run-tests)
 ├── configs/default.yaml
+├── .env.example                     # Pinecone API key template
 ├── data/                            # git-ignored
 │   ├── raw/                         # train.jsonl, shared_task_dev.jsonl, wiki-pages/
 │   ├── interim/                     # extracted pages, mini corpus
-│   └── processed/                   # corpus.parquet, qrels.jsonl, tune/eval/nei claim files, manifest.json
-├── indexes/                         # tfidf.pkl, bm25.pkl, embeddings.npy (git-ignored)
+│   └── processed/                   # corpus.parquet, qrels.jsonl, queries files, manifest.json
+├── indexes/                         # tfidf.pkl, bm25.pkl (git-ignored)
 ├── results/
 │   ├── runs/                        # one run file per method
 │   ├── metrics/                     # per-query and aggregate CSVs
 │   └── figures/
 ├── notes/data_findings.md           # human-written findings
+├── backend/
+│   └── main.py                      # FastAPI application — all REST endpoints
+├── frontend/                        # React 19 + Vite 8 application
+│   ├── src/
+│   │   ├── App.jsx                  # Main UI component
+│   │   └── App.css / index.css      # Styling
+│   └── package.json
 ├── src/fever_ir/
 │   ├── config.py
 │   ├── data/            # loaders.py, wiki_parser.py, corpus_builder.py, sampling.py
 │   ├── preprocessing/   # text_normalize.py, tokenize.py
-│   ├── retrieval/       # base.py, tfidf.py, bm25.py, dense.py, rrf.py
+│   ├── retrieval/       # base.py, tfidf.py, bm25.py, dense.py, rrf.py, manager.py
 │   ├── evaluation/      # metrics.py, runner.py, significance.py, plots.py
 │   └── utils/           # io.py, logging.py
 ├── scripts/             # thin CLI entry points only
-├── app/streamlit_app.py
 ├── tests/
 ├── notebooks/           # exploration only; NO logic lives here
+├── start.sh             # Unified launcher (macOS/Linux)
+├── start.bat            # Unified launcher (Windows)
+├── pyproject.toml
 ├── requirements.txt
 └── README.md
 ```
@@ -198,7 +208,7 @@ curl -L -o data/raw/train.jsonl           https://fever.ai/download/fever/train.
 curl -L -o data/raw/shared_task_dev.jsonl https://fever.ai/download/fever/shared_task_dev.jsonl
 curl -L -o data/raw/wiki-pages.zip        https://fever.ai/download/fever/wiki-pages.zip
 ```
-Unzip so shards are at `data/raw/w iki-pages/wiki-001.jsonl`, … . If a link fails, use `https://fever.ai/dataset/fever.html`.
+Unzip so shards are at `data/raw/wiki-pages/wiki-001.jsonl`, … . If a link fails, use `https://fever.ai/dataset/fever.html`.
 
 ### Step 4 — Inspection (agent writes `scripts/inspect_fever.py`; streaming only)
 The script must **print, not assume**:
@@ -275,10 +285,10 @@ Report K ∈ {1, 3, 5, 10, 20}. Save **per-query** metrics to `results/metrics/p
 - [ ] **Phase 2 — Full corpus + evaluation sets.** Tuning (≈500 train), eval (≈1,500 dev), NEI (≈200 dev), qrels, corpus per D2, `manifest.json` documenting seeds, sizes, filters, dropped claims. *Gate:* 100% of eval gold sentences in the corpus; eval ∩ tuning claim IDs = ∅.
 - [ ] **Phase 3 — Evaluation core.** `metrics.py`, `runner.py`, PR-curve code, random + oracle baselines. *Gate:* all metric tests pass (§6).
 - [ ] **Phase 4 — Preprocessing + TF-IDF + BM25.** Shared tokenizer; saved indexes; both behind `BaseRetriever`; mini-corpus sanity checks, then full corpus with timing logged. Note: `rank-bm25` scores in Python loops (~O(N·|query|)); log per-query latency and cap corpus size accordingly.
-- [ ] **Phase 5 — Dense retriever.** Embed corpus once, save `embeddings.npy` (float32, L2-normalized), cosine via matrix product; no FAISS needed. If local embedding is too slow, embeddings may be computed on Colab/Kaggle and downloaded.
+- [ ] **Phase 5 — Dense retriever.** Embed corpus with `all-MiniLM-L6-v2`, upload to Pinecone; query via Pinecone SDK. If local embedding is too slow, embed on Colab/Kaggle and upload.
 - [ ] **Phase 6 — RRF.** Fusion of three top-100 lists; tune `k` on tuning set only. *Gate:* fusion unit test with hand-computed scores.
 - [ ] **Phase 7 — Experiments + analysis.** Tune on tuning set → **freeze** config → one run on eval set → all analyses in §6. One command regenerates every table/figure.
-- [ ] **Phase 8 — Streamlit app.** Claim input; side-by-side top-10 per method; gold evidence highlighted when the claim is a known eval claim; metrics/PR-graph page loaded from `results/` (never hard-coded numbers); NEI demo.
+- [ ] **Phase 8 — FastAPI + React app.** FastAPI backend (`backend/main.py`) exposes REST endpoints; React frontend (`frontend/`) shows side-by-side top-10 per method; gold evidence highlighted for known eval claims; benchmark metrics loaded from `results/` (never hard-coded numbers); NEI demo.
 - [ ] **Phase 9 — Report + presentation.** Methodology, results, limitations, reproducibility notes; every number cites a file in `results/`.
 
 ---
@@ -306,18 +316,22 @@ scikit-learn
 rank-bm25
 sentence-transformers
 matplotlib
-streamlit
+fastapi
+uvicorn[standard]
+pinecone-client
+python-dotenv
 pyarrow
 pyyaml
 tqdm
 pytest
 ```
+Frontend dependencies are managed by `npm` via `frontend/package.json`.
 After everything works: `pip freeze > requirements.lock.txt`.
 
 ---
 
 ## 10. First prompt to give the agent (Planning mode)
 
-> Read `PROJECT_PLAN.md`. We are in Phase 1. Task 1 only: scaffold the project structure from §4.1 (folders, empty modules with docstrings, `configs/default.yaml` per §4.4, `.gitignore`, `requirements.txt`, README stub). Do not download data and do not implement anything beyond scaffolding. Show me the implementation plan first.
+> Read `plan.md`. We are in Phase 1. Task 1 only: scaffold the project structure from §4.1 (folders, empty modules with docstrings, `configs/default.yaml` per §4.4, `.gitignore`, `requirements.txt`, README stub). Do not download data and do not implement anything beyond scaffolding. Show me the implementation plan first.
 
 Then, one task per prompt: (2) `scripts/inspect_fever.py` per Step 4 → (3) `wiki_parser.py` + tests → (4) `sampling.py` + `corpus_builder.py` + `build_mini_corpus.py` → (5) `tests/test_data.py` per Step 6.
